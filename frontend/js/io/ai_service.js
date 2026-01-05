@@ -1,12 +1,14 @@
+// frontend/js/io/ai_service.js - کلاس AIService اصلی
 class AIService {
     constructor() {
         this.cache = {
             models: {}
         };
+        console.log('[AIService] Created');
     }
 
     getSettings() {
-        return window.AppState.settings;
+        return window.AppState?.settings || {};
     }
 
     async fetchModels(provider, apiKey) {
@@ -139,7 +141,7 @@ Respond ONLY with valid JSON containing the updated "widgets" array for the curr
                 parts: [{ text: system + "\n\n" + user }]
             }],
             generationConfig: {
-                temperature: 0.1, // Lower temperature for more consistent JSON
+                temperature: 0.1,
                 topP: 0.95,
                 topK: 40,
                 maxOutputTokens: 8192,
@@ -158,10 +160,8 @@ Respond ONLY with valid JSON containing the updated "widgets" array for the curr
     }
 
     async callOpenAI(apiKey, model, system, user) {
-        // Check if this is a GPT-5 model (uses newer API features)
         const isGpt5 = model && model.toLowerCase().includes('gpt-5');
 
-        // GPT-5 and newer models support json_schema, older models use json_object
         const responseFormat = isGpt5
             ? {
                 type: "json_schema",
@@ -229,6 +229,11 @@ Respond ONLY with valid JSON containing the updated "widgets" array for the curr
     }
 
     getSystemPrompt() {
+        const canvasDims = window.AppState?.getCanvasDimensions?.() || { width: 240, height: 240 };
+        const deviceModel = window.AppState?.deviceModel || 'esp32';
+        const deviceProfile = window.DEVICE_PROFILES?.[deviceModel] || {};
+        const displayType = deviceProfile.display_type || 'color_lcd';
+        
         return `
 You are an expert UI designer and developer for ESPHome devices. 
 Your task is to modify or create a widget list based on user instructions.
@@ -251,12 +256,12 @@ STRICT OPERATIONAL RULES:
 2. TYPOGRAPHY: "Bold" = font_weight: 700. "Normal/Regular" = font_weight: 400. "Large" = font_size: 28+.
 3. VISUAL HIERARCHY: Use 'shape_rect' or 'rounded_rect' to create headers, footers, or background cards for groups of widgets. Use small thin shapes as dividers.
 4. UNIQUE IDS: Every new widget MUST have a unique ID like "w_" + timestamp or a short descriptive string. Never leave ID as null or undefined.
-5. CANVAS BOUNDS: Stay within ${JSON.stringify(window.AppState.getCanvasDimensions())}.
-6. COLOR USAGE: Check "display_type" in context:
+5. CANVAS BOUNDS: Stay within ${JSON.stringify(canvasDims)}.
+6. COLOR USAGE: Check display_type: "${displayType}"
    - "monochrome": Use ONLY "black" or "white". No grays, no colors.
    - "color_epaper": Use limited palette: black, white, red, green, blue, yellow, orange. No gradients.
    - "color_lcd": Full RGB colors allowed. Use hex codes like "#FF5722" or CSS names.
-7. LVGL WIDGETS: If "display_type" is "monochrome" or "color_epaper", do NOT use lvgl_* widgets unless the user explicitly requests LVGL. Use standard widgets (text, shape_rect, icon, etc.) instead. LVGL is designed for LCDs with fast refresh.
+7. LVGL WIDGETS: If display_type is "monochrome" or "color_epaper", do NOT use lvgl_* widgets unless the user explicitly requests LVGL. Use standard widgets (text, shape_rect, icon, etc.) instead. LVGL is designed for LCDs with fast refresh.
 
 FEW-SHOT EXAMPLE:
 User: "Add a large bold title that reads 'Home Status' at the top with a separator line."
@@ -269,9 +274,6 @@ DESIGN GOAL: Create "Beautiful" layouts. Use whitespace, professional alignment,
 `.trim();
     }
 
-    /**
-     * Minimal recursive JSON repair for truncated strings
-     */
     repairJson(json) {
         let stack = [];
         let inString = false;
@@ -309,7 +311,6 @@ DESIGN GOAL: Create "Beautiful" layouts. Use whitespace, professional alignment,
         let repaired = json;
         if (inString) repaired += '"';
 
-        // Remove trailing commas before closing
         repaired = repaired.trim().replace(/,\s*$/, '');
 
         while (stack.length > 0) {
@@ -320,4 +321,5 @@ DESIGN GOAL: Create "Beautiful" layouts. Use whitespace, professional alignment,
     }
 }
 
+// ایجاد نمونه جهانی AIService
 window.aiService = new AIService();

@@ -580,44 +580,50 @@
 
     <div class="resizer" id="resizer-left"></div>
 
-    <main class="main">
-      <div class="canvas-viewport">
-        <div class="canvas-controls">
-          <div class="canvas-info">
-            <span id="currentPageName">Loading...</span>
-            <span class="separator">/</span>
-            <span id="zoomLevel">100%</span>
-          </div>
-          <div class="zoom-actions">
-            <button id="zoomOutBtn" class="btn-icon" title="Zoom Out">−</button>
-            <button id="zoomResetBtn" class="btn-icon" title="Reset View">⌂</button>
-            <button id="zoomInBtn" class="btn-icon" title="Zoom In">+</button>
-          </div>
-        </div>
-
-        <div id="canvasContainer" class="canvas-container">
-          <div id="canvas" class="canvas">
-            <div class="canvas-grid"></div>
-          </div>
-        </div>
+ <!-- جایگزین کردن این بخش در main -->
+<main class="main">
+  <div class="canvas-viewport">
+    <div class="canvas-controls">
+      <div class="canvas-info">
+        <span id="currentPageName">Loading...</span>
+        <span class="separator">/</span>
+        <span id="zoomLevel">100%</span>
       </div>
-
-      <div class="resizer-h" id="resizer-bottom"></div>
-      <div class="code-panel">
-        <div class="code-panel-header">
-          <div class="code-panel-title">ESPHome YAML</div>
-          <div class="code-panel-actions">
-            <button id="aiPromptBtn" class="btn btn-secondary btn-xs btn-ai-sparkle">✨ AI Assistant</button>
-            <button id="copySnippetBtn" class="btn btn-secondary btn-xs">Copy</button>
-            <button id="fullscreenSnippetBtn" class="btn btn-secondary btn-xs">Full</button>
-            <button id="updateLayoutBtn" class="btn btn-secondary btn-xs"
-              title="Import YAML back to canvas">Update</button>
-          </div>
-        </div>
-        <textarea id="snippetBox" class="snippet-box" spellcheck="false"
-          placeholder="# Click 'Generate' to see the ESPHome configuration..."></textarea>
+      <div class="zoom-actions">
+        <button id="zoomOutBtn" class="btn-icon" title="Zoom Out">−</button>
+        <button id="zoomResetBtn" class="btn-icon" title="Reset View">⌂</button>
+        <button id="zoomInBtn" class="btn-icon" title="Zoom In">+</button>
       </div>
-    </main>
+    </div>
+
+    <div id="canvasContainer" class="canvas-container">
+      <div id="canvas" class="canvas">
+        <div class="canvas-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="resizer-h" id="resizer-bottom"></div>
+
+  <!-- پنل اصلی کد (فقط یک پنل با تب‌های داخلی) -->
+  <div class="code-panel yaml-panel">
+    <div class="code-panel-header">
+      <div class="code-panel-title">ESPHome YAML</div>
+      <div class="code-panel-actions">
+        <button id="aiPromptBtn" class="btn btn-secondary btn-xs btn-ai-sparkle">✨ AI Assistant</button>
+        <button id="copySnippetBtn" class="btn btn-secondary btn-xs">Copy</button>
+        <button id="fullscreenSnippetBtn" class="btn btn-secondary btn-xs">Full</button>
+        <button id="updateLayoutBtn" class="btn btn-secondary btn-xs"
+          title="Import YAML back to canvas">Update</button>
+      </div>
+    </div>
+    <textarea id="snippetBox" class="snippet-box" spellcheck="false"
+      placeholder="# Click 'Generate' to see the ESPHome configuration..."></textarea>
+  </div>
+
+  <!-- این دو پنل اضافی را کاملاً حذف کنید -->
+  <!-- <div class="code-panels-row"> ... </div> -->
+</main>
 
     <div class="resizer" id="resizer-right"></div>
 
@@ -1427,6 +1433,16 @@
   <script src="js/io/hardware_generator.js"></script>
   <script src="js/io/yaml_export.js"></script>
   <script src="js/io/yaml_export_lvgl.js"></script>
+ 
+ <!-- Code Generation System -->
+<!-- ابتدا تمام generatorها -->
+<script src="js/io/c_generator.js"></script>
+<script src="js/io/evm_code_generator.js"></script>
+
+<!-- سپس CodeTabsController -->
+<script src="js/ui/code_tabs_controller.js"></script>
+
+
   <script src="js/ui/device_settings.js"></script>
   <script src="js/ui/editor_settings.js"></script>
   <script src="js/ui/llm_prompt.js"></script>
@@ -1437,6 +1453,7 @@
   <script src="js/ui/modal_wiring.js"></script>
   <script src="js/ui/icon_picker.js"></script>
   <script src="js/ui/quick_search.js"></script>
+
 
   <!-- Local Feature Pre-loading (Mandatory for file:// protocol) -->
   <script src="features/battery_icon/render.js"></script>

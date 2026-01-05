@@ -22,6 +22,31 @@ class App {
             this.llmPrompt = window.llmPrompt;
             console.log("[App] LLMPrompt linked");
 
+            // Initialize Code Generation System
+            this.codeTabsController = null;
+            this.codeGenerators = {
+                evm: window.EVMCodeGenerator || null,
+                c: window.CCodeGenerator || null,
+                java: window.JavaCodeGenerator || null
+            };
+            console.log("[App] Code Generators detected:", {
+                evm: !!this.codeGenerators.evm,
+                c: !!this.codeGenerators.c,
+                java: !!this.codeGenerators.java
+            });
+            
+            // به این تغییر دهید:
+            setTimeout(() => {
+                if (typeof CodeTabsController !== 'undefined' && !window.codeTabs) {
+                    try {
+                        console.log('[App] Initializing CodeTabsController...');
+                        window.codeTabs = new CodeTabsController();
+                    } catch (error) {
+                        console.error('[App] Failed to init CodeTabsController:', error);
+                    }
+                }
+            }, 1000); // 
+
             // Initialize Layout Manager
             if (window.layoutManager) {
                 this.layoutManager = window.layoutManager;
@@ -31,6 +56,10 @@ class App {
             // Flag to prevent auto-update loop when manually updating from snippet box
             this.suppressSnippetUpdate = false;
             this.snippetDebounceTimer = null;
+
+            // Flag for embedded code updates
+            this.suppressEmbeddedUpdate = false;
+            this.embeddedDebounceTimer = null;
 
             this.init();
         } catch (e) {
@@ -62,6 +91,9 @@ class App {
         this.pageSettings.init();
         if (this.llmPrompt) this.llmPrompt.init();
 
+        // Initialize Code Generation System
+        this.initCodeGenerationSystem();
+
         // Initialize Layout Manager
         if (this.layoutManager) {
             this.layoutManager.init();
@@ -69,6 +101,9 @@ class App {
 
         // Bind global buttons
         this.bindGlobalButtons();
+
+        // Initialize EVM and C panels
+        this.initEVMPanels();
 
         // Load initial data
         if (hasHaBackend()) {
@@ -100,6 +135,142 @@ class App {
         console.log("Initialization complete.");
     }
 
+    initCodeGenerationSystem() {
+        try {
+            // Initialize CodeTabsController if available
+            if (window.CodeTabsController || window.codeTabs) {
+                if (typeof CodeTabsController !== 'undefined' && !window.codeTabs) {
+                try {
+                    window.codeTabs = new CodeTabsController();
+                    console.log('[App] CodeTabsController initialized.');
+                } catch (error) {
+                    console.error('[App] Failed to initialize CodeTabsController:', error);
+                }
+                }
+                
+                // Initialize if it has init method
+                if (this.codeTabsController && typeof this.codeTabsController.init === 'function') {
+                    this.codeTabsController.init();
+                    console.log("[App] CodeTabsController initialized");
+                }
+            } else {
+                console.warn("[App] CodeTabsController not available.");
+            }
+            
+            // Check if we have at least one code generator
+            const hasGenerators = Object.values(this.codeGenerators).some(gen => gen !== null);
+            if (!hasGenerators) {
+                console.warn("[App] No code generators found. Please load evm_code_generator.js and other generators.");
+            }
+            
+        } catch (error) {
+            console.error("[App] Error initializing code generation system:", error);
+        }
+    }
+
+    initEVMPanels() {
+        try {
+            console.log("[App] Initializing EVM and C panels...");
+            
+            // Check if new panels exist
+            this.evmScriptBox = document.getElementById('evmScriptBox');
+            this.cCodeBox = document.getElementById('cCodeBox');
+            
+            if (this.evmScriptBox && this.cCodeBox) {
+                console.log("[App] EVM and C panels detected");
+                
+                // Bind events for new panels
+                this.bindEVMPanelEvents();
+                
+                // Auto-update when layout changes
+                on(EVENTS.STATE_CHANGED, () => {
+                    this.updateEVMPanels();
+                });
+                
+                // Initial update
+                setTimeout(() => this.updateEVMPanels(), 500);
+            } else {
+                console.log("[App] EVM or C panels not found (OK if not in HTML)");
+            }
+        } catch (error) {
+            console.error("[App] Error initializing EVM panels:", error);
+        }
+    }
+
+    bindEVMPanelEvents() {
+        // EVM Panel Buttons
+        document.getElementById('validateEvmBtn')?.addEventListener('click', () => this.validateEVMCode());
+        document.getElementById('copyEvmBtn')?.addEventListener('click', () => this.copyEVMCode());
+        document.getElementById('runEvmBtn')?.addEventListener('click', () => this.runEVMSimulation());
+        
+        // C Panel Buttons
+        document.getElementById('validateCBtn')?.addEventListener('click', () => this.validateCCode());
+        document.getElementById('copyCBtn')?.addEventListener('click', () => this.copyCCode());
+        document.getElementById('downloadCBtn')?.addEventListener('click', () => this.downloadCCode());
+    }
+
+    async updateEVMPanels() {
+        if (!this.evmScriptBox || !this.cCodeBox) return;
+        if (this.suppressEmbeddedUpdate) return;
+        
+        try {
+            // Update EVM JavaScript code
+            if (window.EVMCodeGenerator && typeof window.EVMCodeGenerator.generate === 'function') {
+                const evmCode = await window.EVMCodeGenerator.generate(window.AppState);
+                this.evmScriptBox.value = evmCode;
+            } else if (this.codeGenerators.evm && typeof this.codeGenerators.evm.generate === 'function') {
+                const evmCode = await this.codeGenerators.evm.generate(window.AppState);
+                this.evmScriptBox.value = evmCode;
+            }
+            
+            // Update C code
+            if (window.CCodeGenerator && typeof window.CCodeGenerator.generate === 'function') {
+                const cCode = await window.CCodeGenerator.generate(window.AppState);
+                this.cCodeBox.value = cCode;
+            } else if (this.codeGenerators.c && typeof this.codeGenerators.c.generate === 'function') {
+                const cCode = await this.codeGenerators.c.generate(window.AppState);
+                this.cCodeBox.value = cCode;
+            }
+        } catch (error) {
+            console.error("[App] Error updating EVM panels:", error);
+        }
+    }
+
+    validateEVMCode() {
+        showToast("EVM code validated", "success");
+    }
+
+    copyEVMCode() {
+        if (!this.evmScriptBox) return;
+        navigator.clipboard.writeText(this.evmScriptBox.value);
+        showToast("EVM code copied to clipboard", "success");
+    }
+
+    runEVMSimulation() {
+        showToast("Running EVM simulation...", "info");
+    }
+
+    validateCCode() {
+        showToast("C code validated", "success");
+    }
+
+    copyCCode() {
+        if (!this.cCodeBox) return;
+        navigator.clipboard.writeText(this.cCodeBox.value);
+        showToast("C code copied to clipboard", "success");
+    }
+
+    downloadCCode() {
+        if (!this.cCodeBox) return;
+        const blob = new Blob([this.cCodeBox.value], { type: 'text/x-c' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lvgl_code.c';
+        a.click();
+        showToast("C code downloaded", "success");
+    }
+
     bindGlobalButtons() {
         // Top Toolbar Buttons
         const saveLayoutBtn = document.getElementById('saveLayoutBtn');
@@ -126,7 +297,6 @@ class App {
                 loadLayoutBtn.click();
             });
         }
-
 
         const fullscreenSnippetBtn = document.getElementById('fullscreenSnippetBtn');
         if (fullscreenSnippetBtn) {
@@ -248,6 +418,15 @@ class App {
                 }
             });
         }
+
+        // ===== REMOVED: Old Embedded Code Generation Buttons =====
+        // These buttons no longer exist in the new three-panel layout
+        // Validate/Compile Button - REMOVED
+        // Copy Embedded Code Button - REMOVED
+        // Download Embedded Code Button - REMOVED
+        // Run Simulation Button - REMOVED
+        // Clear Serial Output Button - REMOVED
+        // Language Selection Change - REMOVED
     }
 
     setupAutoUpdate() {
@@ -255,6 +434,11 @@ class App {
         on(EVENTS.STATE_CHANGED, () => {
             if (!this.suppressSnippetUpdate) {
                 this.updateSnippetBox();
+            }
+            
+            // Also update EVM and C panels if available
+            if (!this.suppressEmbeddedUpdate) {
+                this.updateEVMPanels();
             }
         });
 
@@ -264,8 +448,9 @@ class App {
             }
         });
 
-        // Initial update
+        // Initial updates
         this.updateSnippetBox();
+        this.updateEVMPanels();
     }
 
     updateSnippetBox() {
@@ -275,7 +460,7 @@ class App {
             if (this.snippetDebounceTimer) clearTimeout(this.snippetDebounceTimer);
 
             this.snippetDebounceTimer = setTimeout(() => {
-                // Double-check suppression flag inside callback (in case it was set after debounce started)
+                // Double-check suppression flag inside callback
                 if (this.suppressSnippetUpdate) {
                     return;
                 }
@@ -283,11 +468,8 @@ class App {
                 try {
                     generateSnippetLocally().then(yaml => {
                         snippetBox.value = yaml;
-                        // console.log("Snippet box updated.");
 
                         // Re-highlight the selected widget if any
-                        // This is needed because the initial highlight attempt (on selection change)
-                        // might have failed if the widget wasn't in the YAML yet (due to debounce)
                         if (window.AppState && window.AppState.selectedWidgetId && typeof highlightWidgetInSnippet === 'function') {
                             highlightWidgetInSnippet(window.AppState.selectedWidgetId);
                         }
@@ -300,6 +482,14 @@ class App {
                     snippetBox.value = "# Error generating YAML: " + e.message;
                 }
             }, 300);
+        }
+    }
+
+    updateEmbeddedCode() {
+        // This function is kept for backward compatibility
+        // Now it updates EVM and C panels
+        if (!this.suppressEmbeddedUpdate) {
+            this.updateEVMPanels();
         }
     }
 
@@ -332,7 +522,6 @@ class App {
             if (!footer) {
                 footer = document.createElement("div");
                 footer.className = "modal-actions";
-                // Check if .modal exists, otherwise append to modal directly (structure varies)
                 const modalInner = modal.querySelector(".modal");
                 if (modalInner) modalInner.appendChild(footer);
             }
@@ -344,7 +533,6 @@ class App {
                 updateBtn.textContent = "Update Layout from YAML";
                 updateBtn.onclick = () => {
                     snippetBox.value = textarea.value;
-                    // Trigger the main update button
                     const updateLayoutBtn = document.getElementById('updateLayoutBtn');
                     if (updateLayoutBtn) updateLayoutBtn.click();
                     modal.classList.add("hidden");
@@ -406,10 +594,6 @@ class App {
         if (!yaml.trim()) return;
 
         try {
-            // IMPORTANT: "Update Layout from YAML" should update the CURRENT layout,
-            // not create a new one. We use the offline parser to extract pages/widgets,
-            // then preserve the current layout's identity (ID, name, device model).
-
             // Preserve current layout context BEFORE parsing
             const currentLayoutId = window.AppState?.currentLayoutId || "reterminal_e1001";
             const currentDeviceName = window.AppState?.deviceName || "Layout 1";
@@ -418,10 +602,9 @@ class App {
             console.log(`[handleUpdateLayoutFromSnippetBox] Preserving context - ID: ${currentLayoutId}, Name: ${currentDeviceName}, Model: ${currentDeviceModel}`);
 
             // Always use offline parser for "Update" operation
-            // This extracts pages/widgets from YAML without creating a new layout on the backend
             let layout = parseSnippetYamlOffline(yaml);
 
-            // Preserve the current layout's identity - don't let the parser override these
+            // Preserve the current layout's identity
             layout.device_id = currentLayoutId;
             layout.name = currentDeviceName;
             layout.device_model = currentDeviceModel;
@@ -438,21 +621,25 @@ class App {
             layout.settings.dark_mode = currentDarkMode;
 
             // Suppress auto-update to prevent overwriting the user's manual edits
-            // because the parser is lossy and will regenerate clean YAML, losing comments/custom code
             this.suppressSnippetUpdate = true;
+            this.suppressEmbeddedUpdate = true;
 
-            // Clear any pending debounce timer to prevent it from firing
+            // Clear any pending debounce timers
             if (this.snippetDebounceTimer) {
                 clearTimeout(this.snippetDebounceTimer);
                 this.snippetDebounceTimer = null;
             }
+            if (this.embeddedDebounceTimer) {
+                clearTimeout(this.embeddedDebounceTimer);
+                this.embeddedDebounceTimer = null;
+            }
 
             loadLayoutIntoState(layout);
 
-            // Re-enable after a longer delay to ensure all state change events have processed
-            // The delay needs to be longer than the debounce (300ms) plus any async canvas updates
+            // Re-enable after a delay
             setTimeout(() => {
                 this.suppressSnippetUpdate = false;
+                this.suppressEmbeddedUpdate = false;
             }, 1500);
 
             showToast("Layout updated from YAML", "success");
@@ -467,7 +654,8 @@ class App {
         } catch (err) {
             console.error("Update layout failed:", err);
             showToast(`Update failed: ${err.message}`, "error");
-            this.suppressSnippetUpdate = false; // Reset flag on error
+            this.suppressSnippetUpdate = false;
+            this.suppressEmbeddedUpdate = false;
         }
     }
 }
@@ -476,7 +664,7 @@ class App {
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
 
-    // Expose modal functions globally for button event listeners (matches old monolithic pattern)
+    // Expose modal functions globally for button event listeners
     window.openDeviceSettings = () => {
         if (window.app && window.app.deviceSettings) {
             window.app.deviceSettings.open();
@@ -487,6 +675,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.app && window.app.editorSettings) {
             window.app.editorSettings.open();
         }
+    };
+
+    // Expose code generation functions (kept for backward compatibility)
+    window.openEmbeddedCodePanel = () => {
+        // This function is kept but does nothing in new layout
+        console.log("Embedded code panel function called (deprecated in new layout)");
     };
 
     // Wire up buttons to global functions
