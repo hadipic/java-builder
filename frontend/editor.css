@@ -1384,3 +1384,10 @@ kbd {
         padding: 8px;
     }
 }
+
+.btn-secondary {
+    /* استایل‌های موجود */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
